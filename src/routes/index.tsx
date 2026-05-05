@@ -13,6 +13,7 @@ import {
   Home,
   History,
   Settings,
+  X,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -155,6 +156,7 @@ function Index() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [musicPlaying, setMusicPlaying] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   const handleMic = () => {
     if (state === "listening") {
@@ -227,6 +229,10 @@ function Index() {
   const handleCameraFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(file);
+      });
       toast.success("Photo captured", { description: file.name });
     }
     e.target.value = "";
