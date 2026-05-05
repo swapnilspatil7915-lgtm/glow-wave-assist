@@ -168,4 +168,38 @@
   .animate-ring-spin { animation: ring-spin 1.8s linear infinite; }
   .animate-wave { animation: wave 1s ease-in-out infinite; }
   .animate-nav-pop { animation: nav-pop 0.25s ease-out; }
+
+  /* Voice-first orb animations */
+  @keyframes orb-breath {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.04); filter: brightness(1.15); }
+  }
+  @keyframes orb-ripple {
+    0% { transform: scale(0.9); opacity: 0.55; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+  @keyframes orb-burst {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1.08); }
+  }
+  @keyframes particle-drift {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    20% { opacity: 0.7; }
+    100% { transform: translateY(-120vh) translateX(20px); opacity: 0; }
+  }
+  @keyframes siri-wave {
+    0%, 100% { transform: scaleY(0.3); }
+    50% { transform: scaleY(1); }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-orb-breath { animation: orb-breath 3.6s ease-in-out infinite; }
+  .animate-orb-ripple { animation: orb-ripple 2.4s ease-out infinite; }
+  .animate-orb-burst { animation: orb-burst 0.6s ease-out forwards; }
+  .animate-particle { animation: particle-drift linear infinite; }
+  .animate-siri-wave { animation: siri-wave 0.9s ease-in-out infinite; transform-origin: center; }
+  .animate-fade-up { animation: fade-up 0.4s ease-out; }
 }
