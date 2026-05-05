@@ -11,6 +11,7 @@ export const Route = createFileRoute("/")({ component: Index });
 type OrbState = "idle" | "listening" | "activated" | "offline";
 
 const WAKE_PHRASES = ["khul ja sim sim", "khulja sim sim", "khul ja simsim", "open sesame"];
+const OFF_PHRASES = ["off app", "turn off app", "shut down", "shutdown", "band karo", "bandh karo", "stop assistant"];
 
 function normalize(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -18,6 +19,10 @@ function normalize(s: string) {
 function hasWake(text: string) {
   const n = normalize(text);
   return WAKE_PHRASES.some((p) => n.includes(p));
+}
+function hasOff(text: string) {
+  const n = normalize(text);
+  return OFF_PHRASES.some((p) => n.includes(p));
 }
 
 function Particles() {
@@ -134,8 +139,10 @@ function Orb({ state }: { state: OrbState }) {
 function Index() {
   const [orbState, setOrbState] = useState<OrbState>("idle");
   const [activated, setActivated] = useState(false);
+  const [poweredOff, setPoweredOff] = useState(false);
   const [interim, setInterim] = useState("");
   const [lastFinal, setLastFinal] = useState("");
+  const [lastCommand, setLastCommand] = useState<string>("");
   const [now, setNow] = useState("");
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [showSettings, setShowSettings] = useState(false);
@@ -145,6 +152,7 @@ function Index() {
   const torchStreamRef = useRef<MediaStream | null>(null);
   const torchOnRef = useRef(false);
   const activatedRef = useRef(false);
+  const poweredOffRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clock
@@ -206,6 +214,7 @@ function Index() {
       try {
         const msg = await runCommand(id, ctx);
         toast.success(label, { description: msg });
+        setLastCommand(label);
       } catch (e) {
         toast.error("Action failed", { description: String(e) });
       }
@@ -218,6 +227,7 @@ function Index() {
     (text: string) => {
       setLastFinal(text);
       setInterim("");
+      if (poweredOffRef.current) return;
       if (!activatedRef.current) {
         if (hasWake(text)) {
           activatedRef.current = true;
@@ -229,12 +239,23 @@ function Index() {
         }
         return;
       }
+      if (hasOff(text)) {
+        poweredOffRef.current = true;
+        activatedRef.current = false;
+        setPoweredOff(true);
+        setActivated(false);
+        setOrbState("offline");
+        try { speech.stop(); } catch { /* noop */ }
+        toast("Assistant is OFF");
+        return;
+      }
       // After activation: route to a command
       const result = matchCommand(text);
       if (result.command) {
         executeCommand(result.command.id, result.command.label);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [executeCommand],
   );
 
@@ -260,6 +281,7 @@ function Index() {
       setOrbState("offline");
       return;
     }
+    if (poweredOff) return;
     if (!speech.listening) {
       restartTimerRef.current = setTimeout(() => speech.start(), 350);
     } else {
@@ -268,10 +290,19 @@ function Index() {
     return () => {
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
     };
-  }, [speech.listening, speech.supported, speech.start]);
+  }, [speech.listening, speech.supported, speech.start, poweredOff]);
+
+  const powerOn = useCallback(() => {
+    poweredOffRef.current = false;
+    setPoweredOff(false);
+    setOrbState("listening");
+    setTimeout(() => speech.start(), 200);
+  }, [speech]);
 
   const headline =
-    orbState === "offline"
+    poweredOff
+      ? "Assistant is OFF"
+      : orbState === "offline"
       ? "Offline AI Ready 🔒"
       : orbState === "activated"
         ? "Yes, I'm here 👁️"
@@ -281,13 +312,15 @@ function Index() {
             ? "Listening…"
             : "Say \"khul ja sim sim\" to begin";
 
-  const hint = activated
-    ? "Try: open camera • turn on torch • play music"
-    : "Voice-first • Always listening";
+  const hint = poweredOff
+    ? "Tap the orb or say \"khul ja sim sim\" to restart"
+    : activated
+      ? "Try: open camera • torch • play music • say \"off app\" to stop"
+      : "Say \"khul ja sim sim\" to activate";
 
   return (
     <main
-      className="relative flex min-h-screen flex-col overflow-hidden text-white"
+      className={`relative flex min-h-screen flex-col overflow-hidden text-white transition-all duration-700 ${poweredOff ? "grayscale brightness-50" : ""}`}
       style={{ background: "radial-gradient(ellipse at top, #0A0F1F 0%, #000000 70%)" }}
     >
       <Particles />
@@ -309,12 +342,27 @@ function Index() {
       <header className="relative z-10 grid grid-cols-3 items-center px-6 pt-5 text-xs">
         <span className="text-cyan-300/70 tracking-[0.3em] uppercase">Lovable AI</span>
         <span className="text-center text-base font-medium tabular-nums">{now}</span>
-        <span className="text-right text-cyan-300/60">v1</span>
+        <span className="flex items-center justify-end gap-2 text-right">
+          <span
+            className={`inline-block h-2.5 w-2.5 rounded-full ${poweredOff ? "bg-rose-500" : "bg-emerald-400 animate-pulse"}`}
+            style={{ boxShadow: poweredOff ? "0 0 10px rgba(244,63,94,0.8)" : "0 0 10px rgba(52,211,153,0.8)" }}
+          />
+          <span className={poweredOff ? "text-rose-300/80" : "text-emerald-300/80"}>
+            {poweredOff ? "OFF" : "ON"}
+          </span>
+        </span>
       </header>
 
       {/* Center */}
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6">
-        <Orb state={orbState} />
+        <button
+          type="button"
+          onClick={poweredOff ? powerOn : undefined}
+          className={`rounded-full outline-none ${poweredOff ? "cursor-pointer opacity-60 scale-75" : "cursor-default"} transition-transform duration-700`}
+          aria-label={poweredOff ? "Restart assistant" : "Assistant orb"}
+        >
+          <Orb state={orbState} />
+        </button>
 
         <div className="flex flex-col items-center gap-3 text-center">
           <h1
@@ -327,12 +375,18 @@ function Index() {
           <p className="text-xs text-cyan-200/50">{hint}</p>
         </div>
 
-        <Waveform active={orbState === "listening" || orbState === "activated"} />
+        <Waveform active={!poweredOff && (orbState === "listening" || orbState === "activated")} />
 
         <div className="min-h-[2.5rem] w-full max-w-md text-center">
           {interim && <p className="text-sm italic text-cyan-200/70">&ldquo;{interim}&rdquo;</p>}
           {!interim && lastFinal && <p className="text-sm text-white/80">&ldquo;{lastFinal}&rdquo;</p>}
         </div>
+
+        {lastCommand && (
+          <p className="text-[11px] uppercase tracking-[0.25em] text-cyan-300/50">
+            Last command: <span className="text-cyan-200/80">{lastCommand}</span>
+          </p>
+        )}
       </section>
 
       {/* Bottom controls */}
