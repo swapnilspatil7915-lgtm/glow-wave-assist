@@ -157,6 +157,7 @@ function Index() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   const handleMic = () => {
     if (state === "listening") {
@@ -281,19 +282,26 @@ function Index() {
 
           {photoUrl && (
             <div className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
-              <img
-                src={photoUrl}
-                alt="Captured preview"
-                className="h-16 w-16 rounded-xl object-cover"
-              />
+              <button
+                onClick={() => setPhotoOpen(true)}
+                className="shrink-0 focus:outline-none focus:ring-2 focus:ring-primary rounded-xl"
+                aria-label="Open full-screen preview"
+              >
+                <img
+                  src={photoUrl}
+                  alt="Captured preview"
+                  className="h-16 w-16 rounded-xl object-cover"
+                />
+              </button>
               <div className="flex-1">
                 <p className="text-sm font-medium">Last capture</p>
-                <p className="text-xs text-muted-foreground">Tap to retake</p>
+                <p className="text-xs text-muted-foreground">Tap to preview</p>
               </div>
               <button
                 onClick={() => {
                   URL.revokeObjectURL(photoUrl);
                   setPhotoUrl(null);
+                  setPhotoOpen(false);
                 }}
                 className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                 aria-label="Remove photo"
@@ -304,6 +312,32 @@ function Index() {
           )}
         </div>
       </section>
+
+      {photoUrl && photoOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setPhotoOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPhotoOpen(false);
+            }}
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur hover:bg-white/20"
+            aria-label="Close preview"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={photoUrl}
+            alt="Captured full preview"
+            className="max-h-[90vh] max-w-[95vw] rounded-2xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <nav className="sticky bottom-0 mx-4 mb-4 flex items-center justify-around rounded-3xl border border-border bg-card/80 p-2 shadow-lg backdrop-blur">
         {(
