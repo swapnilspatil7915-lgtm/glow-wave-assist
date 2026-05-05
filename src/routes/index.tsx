@@ -8,7 +8,8 @@ import { useSpeech } from "@/hooks/use-speech";
 
 export const Route = createFileRoute("/")({ component: Index });
 
-type OrbState = "idle" | "listening" | "activated" | "offline";
+type OrbState = "idle" | "listening" | "processing" | "speaking" | "activated" | "offline";
+type VoiceGender = "female" | "male";
 
 const WAKE_PHRASES = ["khul ja sim sim", "khulja sim sim", "khul ja simsim", "open sesame"];
 const OFF_PHRASES = ["off app", "turn off app", "shut down", "shutdown", "band karo", "bandh karo", "stop assistant"];
@@ -23,6 +24,41 @@ function hasWake(text: string) {
 function hasOff(text: string) {
   const n = normalize(text);
   return OFF_PHRASES.some((p) => n.includes(p));
+}
+
+// Short confirmation chime via WebAudio (no asset needed).
+function playChime() {
+  try {
+    const AC = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
+    const ctx = new AC();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.24);
+    setTimeout(() => ctx.close(), 400);
+  } catch { /* noop */ }
+}
+
+function pickVoice(gender: VoiceGender): SpeechSynthesisVoice | null {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+  const femaleHints = ["female", "samantha", "victoria", "zira", "google uk english female", "karen", "tessa", "fiona"];
+  const maleHints = ["male", "daniel", "alex", "david", "google uk english male", "fred", "rishi"];
+  const hints = gender === "female" ? femaleHints : maleHints;
+  const en = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
+  for (const h of hints) {
+    const v = en.find((v) => v.name.toLowerCase().includes(h));
+    if (v) return v;
+  }
+  return en[0] ?? voices[0];
 }
 
 function Particles() {
@@ -59,19 +95,20 @@ function Particles() {
   );
 }
 
-function Waveform({ active }: { active: boolean }) {
+function Waveform({ active, color }: { active: boolean; color: string }) {
   const bars = Array.from({ length: 22 });
   return (
     <div className="flex h-10 items-center justify-center gap-[3px]">
       {bars.map((_, i) => (
         <span
           key={i}
-          className={`w-[3px] rounded-full bg-cyan-300 ${active ? "animate-siri-wave" : ""}`}
+          className={`w-[3px] rounded-full ${active ? "animate-siri-wave" : ""}`}
           style={{
             height: active ? "100%" : "20%",
+            background: color,
             animationDelay: `${(i % 11) * 0.07}s`,
             opacity: active ? 0.85 : 0.3,
-            boxShadow: active ? "0 0 6px rgba(0,229,255,0.8)" : "none",
+            boxShadow: active ? `0 0 6px ${color}` : "none",
           }}
         />
       ))}
@@ -79,59 +116,46 @@ function Waveform({ active }: { active: boolean }) {
   );
 }
 
+function getStateColors(state: OrbState): { glow: string; core: [string, string, string] } {
+  switch (state) {
+    case "speaking":
+      return { glow: "124,77,255", core: ["#B388FF", "#7C4DFF", "#1A0F3D"] };
+    case "processing":
+      return { glow: "255,213,79", core: ["#FFE082", "#FFC107", "#3D2A00"] };
+    case "activated":
+      return { glow: "0,230,118", core: ["#B9F6CA", "#00E676", "#003D1F"] };
+    case "offline":
+      return { glow: "120,120,120", core: ["#888", "#444", "#111"] };
+    case "listening":
+    case "idle":
+    default:
+      return { glow: "0,229,255", core: ["#B2EBFF", "#00E5FF", "#001E2E"] };
+  }
+}
+
 function Orb({ state }: { state: OrbState }) {
   const ringClass =
-    state === "activated"
-      ? "animate-orb-burst"
-      : state === "listening"
-        ? "animate-orb-breath"
-        : "animate-orb-breath";
-
-  const glowColor = state === "activated" ? "124,77,255" : "0,229,255";
+    state === "activated" ? "animate-orb-burst" : "animate-orb-breath";
+  const { glow, core } = getStateColors(state);
 
   return (
     <div className="relative flex h-72 w-72 items-center justify-center">
-      {/* Outer ripples */}
-      {(state === "listening" || state === "activated") && (
+      {(state === "listening" || state === "activated" || state === "speaking" || state === "processing") && (
         <>
-          <span
-            className="absolute inset-0 rounded-full animate-orb-ripple"
-            style={{ border: `1px solid rgba(${glowColor},0.6)` }}
-          />
-          <span
-            className="absolute inset-0 rounded-full animate-orb-ripple"
-            style={{ border: `1px solid rgba(${glowColor},0.4)`, animationDelay: "0.8s" }}
-          />
-          <span
-            className="absolute inset-0 rounded-full animate-orb-ripple"
-            style={{ border: `1px solid rgba(${glowColor},0.25)`, animationDelay: "1.6s" }}
-          />
+          <span className="absolute inset-0 rounded-full animate-orb-ripple" style={{ border: `1px solid rgba(${glow},0.6)` }} />
+          <span className="absolute inset-0 rounded-full animate-orb-ripple" style={{ border: `1px solid rgba(${glow},0.4)`, animationDelay: "0.8s" }} />
+          <span className="absolute inset-0 rounded-full animate-orb-ripple" style={{ border: `1px solid rgba(${glow},0.25)`, animationDelay: "1.6s" }} />
         </>
       )}
-
-      {/* Glow halo */}
-      <span
-        className="absolute inset-6 rounded-full blur-2xl"
-        style={{ background: `radial-gradient(circle, rgba(${glowColor},0.55), transparent 70%)` }}
-      />
-
-      {/* Main orb */}
+      <span className="absolute inset-6 rounded-full blur-2xl" style={{ background: `radial-gradient(circle, rgba(${glow},0.55), transparent 70%)` }} />
       <span
         className={`relative h-44 w-44 rounded-full ${ringClass}`}
         style={{
-          background:
-            state === "activated"
-              ? "radial-gradient(circle at 30% 30%, #B388FF 0%, #7C4DFF 45%, #1A0F3D 100%)"
-              : "radial-gradient(circle at 30% 30%, #B2EBFF 0%, #00E5FF 40%, #001E2E 100%)",
-          boxShadow: `0 0 80px 10px rgba(${glowColor},0.55), inset 0 0 40px rgba(255,255,255,0.15)`,
+          background: `radial-gradient(circle at 30% 30%, ${core[0]} 0%, ${core[1]} 45%, ${core[2]} 100%)`,
+          boxShadow: `0 0 80px 10px rgba(${glow},0.55), inset 0 0 40px rgba(255,255,255,0.15)`,
         }}
       />
-
-      {/* Inner ring */}
-      <span
-        className="absolute h-52 w-52 rounded-full"
-        style={{ border: `1px solid rgba(${glowColor},0.35)` }}
-      />
+      <span className="absolute h-52 w-52 rounded-full" style={{ border: `1px solid rgba(${glow},0.35)` }} />
     </div>
   );
 }
@@ -146,6 +170,10 @@ function Index() {
   const [now, setNow] = useState("");
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [showSettings, setShowSettings] = useState(false);
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(() => {
+    if (typeof localStorage === "undefined") return "female";
+    return (localStorage.getItem("voiceGender") as VoiceGender) || "female";
+  });
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -153,9 +181,9 @@ function Index() {
   const torchOnRef = useRef(false);
   const activatedRef = useRef(false);
   const poweredOffRef = useRef(false);
+  const speakingRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clock
   useEffect(() => {
     const tick = () => setNow(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     tick();
@@ -163,7 +191,6 @@ function Index() {
     return () => clearInterval(id);
   }, []);
 
-  // Mic permission status
   useEffect(() => {
     const nav = navigator as Navigator & { permissions?: { query: (d: { name: string }) => Promise<{ state: string; onchange: (() => void) | null }> } };
     nav.permissions?.query({ name: "microphone" }).then((p) => {
@@ -172,7 +199,18 @@ function Index() {
     }).catch(() => setMicPermission("unknown"));
   }, []);
 
-  // Action context
+  // Preload TTS voices
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const sync = () => window.speechSynthesis.getVoices();
+    sync();
+    window.speechSynthesis.onvoiceschanged = sync;
+  }, []);
+
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") localStorage.setItem("voiceGender", voiceGender);
+  }, [voiceGender]);
+
   const openCamera = useCallback(() => cameraInputRef.current?.click(), []);
   const toggleTorch = useCallback(async () => {
     try {
@@ -207,24 +245,68 @@ function Index() {
     await audioRef.current.play();
   }, []);
   const pauseMusic = useCallback(() => audioRef.current?.pause(), []);
-  const ctx = { openCamera, toggleTorch, playMusic, pauseMusic };
+
+  // We need the speech ref before defining speak (which stops it).
+  const speechRef = useRef<{ stop: () => void; start: () => void } | null>(null);
+
+  const speak = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined" || !window.speechSynthesis) {
+        resolve();
+        return;
+      }
+      // Mute mic while speaking to avoid hearing ourselves.
+      speakingRef.current = true;
+      try { speechRef.current?.stop(); } catch { /* noop */ }
+      setOrbState("speaking");
+
+      const u = new SpeechSynthesisUtterance(text);
+      const v = pickVoice(voiceGender);
+      if (v) u.voice = v;
+      u.rate = 1.05;
+      u.pitch = voiceGender === "female" ? 1.1 : 0.9;
+      u.onend = () => {
+        speakingRef.current = false;
+        // brief gap before reopening mic
+        setTimeout(() => {
+          if (!poweredOffRef.current) {
+            setOrbState(activatedRef.current ? "listening" : "listening");
+            try { speechRef.current?.start(); } catch { /* noop */ }
+          }
+          resolve();
+        }, 200);
+      };
+      u.onerror = () => {
+        speakingRef.current = false;
+        resolve();
+      };
+      // small pre-delay for premium feel + chime
+      playChime();
+      setTimeout(() => window.speechSynthesis.speak(u), 300);
+    });
+  }, [voiceGender]);
 
   const executeCommand = useCallback(
     async (id: CommandId, label: string) => {
+      // Instant UI feedback
+      setOrbState("processing");
+      setLastCommand(label);
+      const ctx = { openCamera, toggleTorch, playMusic, pauseMusic };
+      // Speak instant ack, then run action
+      await speak(`Got it. ${label}.`);
       try {
         const msg = await runCommand(id, ctx);
         toast.success(label, { description: msg });
-        setLastCommand(label);
       } catch (e) {
         toast.error("Action failed", { description: String(e) });
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [openCamera, toggleTorch, playMusic, pauseMusic, speak],
   );
 
   const handleFinal = useCallback(
     (text: string) => {
+      if (speakingRef.current) return; // ignore self-echo
       setLastFinal(text);
       setInterim("");
       if (poweredOffRef.current) return;
@@ -233,9 +315,7 @@ function Index() {
           activatedRef.current = true;
           setActivated(true);
           setOrbState("activated");
-          toast.success("Activated", { description: "Yes, I'm here 👁️" });
-          // brief burst, then back to listening for commands
-          setTimeout(() => setOrbState("listening"), 1200);
+          speak("Yes, I'm here.");
         }
         return;
       }
@@ -245,18 +325,16 @@ function Index() {
         setPoweredOff(true);
         setActivated(false);
         setOrbState("offline");
-        try { speech.stop(); } catch { /* noop */ }
-        toast("Assistant is OFF");
+        try { speechRef.current?.stop(); } catch { /* noop */ }
+        speak("Assistant off.");
         return;
       }
-      // After activation: route to a command
       const result = matchCommand(text);
       if (result.command) {
         executeCommand(result.command.id, result.command.label);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [executeCommand],
+    [executeCommand, speak],
   );
 
   const handleError = useCallback((err: string) => {
@@ -265,27 +343,32 @@ function Index() {
       setOrbState("offline");
       toast.error("Microphone blocked", { description: "Allow mic permission in your browser." });
     }
-    // ignore no-speech, aborted etc; loop will restart
   }, []);
 
   const speech = useSpeech({
     onFinal: handleFinal,
-    onInterim: setInterim,
+    onInterim: (t) => { if (!speakingRef.current) setInterim(t); },
     onError: handleError,
   });
 
-  // Always-on listening loop: auto-start and auto-restart whenever the
-  // recognizer ends (timeout, silence). This gives a hands-free feel.
+  useEffect(() => {
+    speechRef.current = { stop: speech.stop, start: speech.start };
+  }, [speech.stop, speech.start]);
+
   useEffect(() => {
     if (!speech.supported) {
       setOrbState("offline");
       return;
     }
-    if (poweredOff) return;
+    if (poweredOff || speakingRef.current) return;
     if (!speech.listening) {
-      restartTimerRef.current = setTimeout(() => speech.start(), 350);
+      restartTimerRef.current = setTimeout(() => {
+        if (!speakingRef.current && !poweredOffRef.current) speech.start();
+      }, 350);
     } else {
-      setOrbState((s) => (s === "offline" ? "listening" : activatedRef.current && s === "activated" ? s : "listening"));
+      setOrbState((s) =>
+        s === "offline" || s === "idle" ? "listening" : s,
+      );
     }
     return () => {
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
@@ -301,22 +384,28 @@ function Index() {
 
   const headline =
     poweredOff
-      ? "Assistant is OFF"
-      : orbState === "offline"
-      ? "Offline AI Ready 🔒"
-      : orbState === "activated"
-        ? "Yes, I'm here 👁️"
-        : activated
-          ? "Listening for a command…"
-          : speech.listening
-            ? "Listening…"
-            : "Say \"khul ja sim sim\" to begin";
+      ? "Assistant OFF"
+      : orbState === "speaking"
+        ? "Speaking…"
+        : orbState === "processing"
+          ? "Processing…"
+          : orbState === "offline"
+            ? "Offline AI Ready 🔒"
+            : orbState === "activated"
+              ? "Yes, I'm here 👁️"
+              : activated
+                ? "Listening for a command…"
+                : speech.listening
+                  ? "Listening…"
+                  : "Say \"khul ja sim sim\" to begin";
 
   const hint = poweredOff
     ? "Tap the orb or say \"khul ja sim sim\" to restart"
     : activated
       ? "Try: open camera • torch • play music • say \"off app\" to stop"
       : "Say \"khul ja sim sim\" to activate";
+
+  const waveColor = orbState === "speaking" ? "#B388FF" : orbState === "processing" ? "#FFC107" : "#00E5FF";
 
   return (
     <main
@@ -338,22 +427,18 @@ function Index() {
         }}
       />
 
-      {/* Top bar */}
       <header className="relative z-10 grid grid-cols-3 items-center px-6 pt-5 text-xs">
         <span className="text-cyan-300/70 tracking-[0.3em] uppercase">Lovable AI</span>
         <span className="text-center text-base font-medium tabular-nums">{now}</span>
         <span className="flex items-center justify-end gap-2 text-right">
+          <span className="text-cyan-200/80">{voiceGender === "female" ? "👩 Female" : "👨 Male"}</span>
           <span
             className={`inline-block h-2.5 w-2.5 rounded-full ${poweredOff ? "bg-rose-500" : "bg-emerald-400 animate-pulse"}`}
             style={{ boxShadow: poweredOff ? "0 0 10px rgba(244,63,94,0.8)" : "0 0 10px rgba(52,211,153,0.8)" }}
           />
-          <span className={poweredOff ? "text-rose-300/80" : "text-emerald-300/80"}>
-            {poweredOff ? "OFF" : "ON"}
-          </span>
         </span>
       </header>
 
-      {/* Center */}
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6">
         <button
           type="button"
@@ -375,7 +460,7 @@ function Index() {
           <p className="text-xs text-cyan-200/50">{hint}</p>
         </div>
 
-        <Waveform active={!poweredOff && (orbState === "listening" || orbState === "activated")} />
+        <Waveform active={!poweredOff && orbState !== "idle" && orbState !== "offline"} color={waveColor} />
 
         <div className="min-h-[2.5rem] w-full max-w-md text-center">
           {interim && <p className="text-sm italic text-cyan-200/70">&ldquo;{interim}&rdquo;</p>}
@@ -389,7 +474,6 @@ function Index() {
         )}
       </section>
 
-      {/* Bottom controls */}
       <footer className="relative z-10 flex items-center justify-between px-6 pb-6">
         <button
           onClick={() => setShowSettings((v) => !v)}
@@ -413,16 +497,13 @@ function Index() {
           ) : (
             <>
               <Mic className="h-4 w-4 text-cyan-300" />
-              <span className="text-cyan-200/80">
-                {speech.supported ? "Mic ready" : "Unsupported"}
-              </span>
+              <span className="text-cyan-200/80">{speech.supported ? "Mic ready" : "Unsupported"}</span>
               <ShieldAlert className="h-4 w-4 text-cyan-300/60" />
             </>
           )}
         </div>
       </footer>
 
-      {/* Settings sheet */}
       {showSettings && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm"
@@ -433,18 +514,35 @@ function Index() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-base font-medium text-cyan-200">Voice commands</p>
-              <button
-                className="text-xs text-cyan-300/70 hover:text-cyan-200"
-                onClick={() => setShowSettings(false)}
-              >
-                Close
-              </button>
+              <p className="text-base font-medium text-cyan-200">Settings</p>
+              <button className="text-xs text-cyan-300/70 hover:text-cyan-200" onClick={() => setShowSettings(false)}>Close</button>
             </div>
+
+            <div className="mb-4">
+              <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Voice Type</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => { setVoiceGender("female"); speak("Hello, I'm your female voice."); }}
+                  className={`rounded-xl border p-3 text-left transition ${voiceGender === "female" ? "border-cyan-400 bg-cyan-400/10" : "border-white/10 bg-white/5"}`}
+                >
+                  <div className="text-lg">👩</div>
+                  <div className="text-sm text-white">Female Voice</div>
+                </button>
+                <button
+                  onClick={() => { setVoiceGender("male"); speak("Hello, I'm your male voice."); }}
+                  className={`rounded-xl border p-3 text-left transition ${voiceGender === "male" ? "border-cyan-400 bg-cyan-400/10" : "border-white/10 bg-white/5"}`}
+                >
+                  <div className="text-lg">👨</div>
+                  <div className="text-sm text-white">Male Voice</div>
+                </button>
+              </div>
+            </div>
+
+            <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Voice commands</p>
             <p className="mb-3 text-xs text-cyan-200/60">
               Wake phrase: <span className="text-cyan-300">"khul ja sim sim"</span>
             </p>
-            <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto text-xs text-white/70">
+            <ul className="max-h-[40vh] space-y-1.5 overflow-y-auto text-xs text-white/70">
               {COMMANDS.map((c) => (
                 <li key={c.id} className="flex justify-between gap-3">
                   <span className="text-white">{c.label}</span>
