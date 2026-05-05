@@ -278,6 +278,30 @@ function Index() {
               </button>
             ))}
           </div>
+
+          {photoUrl && (
+            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
+              <img
+                src={photoUrl}
+                alt="Captured preview"
+                className="h-16 w-16 rounded-xl object-cover"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Last capture</p>
+                <p className="text-xs text-muted-foreground">Tap to retake</p>
+              </div>
+              <button
+                onClick={() => {
+                  URL.revokeObjectURL(photoUrl);
+                  setPhotoUrl(null);
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Remove photo"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
