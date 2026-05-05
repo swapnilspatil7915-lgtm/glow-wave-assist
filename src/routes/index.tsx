@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   Mic,
   Wifi,
@@ -50,12 +51,18 @@ const stateConfig: Record<
   },
 };
 
-const suggestions = [
-  { label: "Call Mom", icon: Phone },
-  { label: "Open Camera", icon: Camera },
-  { label: "Turn on Bluetooth", icon: Bluetooth },
-  { label: "Play Music", icon: Music },
+type SuggestionId = "call" | "camera" | "bluetooth" | "music";
+
+const suggestions: { id: SuggestionId; label: string; icon: typeof Phone }[] = [
+  { id: "call", label: "Call Mom", icon: Phone },
+  { id: "camera", label: "Open Camera", icon: Camera },
+  { id: "bluetooth", label: "Turn on Bluetooth", icon: Bluetooth },
+  { id: "music", label: "Play Music", icon: Music },
 ];
+
+// Demo audio (royalty-free chime) — swap for any track URL.
+const DEMO_TRACK =
+  "https://cdn.pixabay.com/download/audio/2022/03/15/audio_1718e0f3a8.mp3?filename=lofi-study-112191.mp3";
 
 function StatusBar({ state }: { state: AssistantState }) {
   const [time, setTime] = useState("");
@@ -145,6 +152,9 @@ function Index() {
   const [activeNav, setActiveNav] = useState<"home" | "history" | "settings">(
     "home",
   );
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [musicPlaying, setMusicPlaying] = useState(false);
 
   const handleMic = () => {
     if (state === "listening") {
@@ -155,9 +165,84 @@ function Index() {
     }
   };
 
+  const handleSuggestion = async (id: SuggestionId) => {
+    switch (id) {
+      case "call": {
+        // Replace with real number when available.
+        window.location.href = "tel:+10000000000";
+        toast("Calling Mom…", { description: "Opening your phone dialer." });
+        break;
+      }
+      case "camera": {
+        cameraInputRef.current?.click();
+        break;
+      }
+      case "bluetooth": {
+        const nav = navigator as Navigator & {
+          bluetooth?: { requestDevice: (o: object) => Promise<{ name?: string }> };
+        };
+        if (!nav.bluetooth) {
+          toast.error("Bluetooth not supported", {
+            description: "This browser doesn't expose Web Bluetooth.",
+          });
+          return;
+        }
+        try {
+          const device = await nav.bluetooth.requestDevice({
+            acceptAllDevices: true,
+          });
+          toast.success("Bluetooth ready", {
+            description: device.name
+              ? `Selected ${device.name}`
+              : "Device selected.",
+          });
+        } catch {
+          toast("Bluetooth cancelled");
+        }
+        break;
+      }
+      case "music": {
+        if (!audioRef.current) {
+          audioRef.current = new Audio(DEMO_TRACK);
+          audioRef.current.loop = true;
+        }
+        if (musicPlaying) {
+          audioRef.current.pause();
+          setMusicPlaying(false);
+          toast("Music paused");
+        } else {
+          try {
+            await audioRef.current.play();
+            setMusicPlaying(true);
+            toast.success("Now playing", { description: "Lo-fi study mix" });
+          } catch {
+            toast.error("Couldn't start playback");
+          }
+        }
+        break;
+      }
+    }
+  };
+
+  const handleCameraFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      toast.success("Photo captured", { description: file.name });
+    }
+    e.target.value = "";
+  };
+
   return (
     <main className="flex min-h-screen flex-col bg-gradient-to-b from-background via-background to-muted">
       <StatusBar state={state} />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCameraFile}
+      />
 
       <section className="flex flex-1 flex-col items-center justify-center gap-12 px-6">
         <div className="text-center">
@@ -174,15 +259,16 @@ function Index() {
             Smart Suggestions
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {suggestions.map(({ label, icon: Icon }) => (
+            {suggestions.map(({ id, label, icon: Icon }) => (
               <button
                 key={label}
+                onClick={() => handleSuggestion(id)}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left text-sm font-medium shadow-sm transition hover:scale-[1.02] hover:border-primary/40 hover:bg-accent"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </span>
-                {label}
+                {id === "music" && musicPlaying ? "Pause Music" : label}
               </button>
             ))}
           </div>
