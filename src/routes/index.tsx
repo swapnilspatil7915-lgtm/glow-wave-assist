@@ -94,6 +94,8 @@ function pickVoice(gender: VoiceGender): SpeechSynthesisVoice | null {
 }
 
 function Particles() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const dots = useMemo(
     () =>
       Array.from({ length: 28 }).map((_, i) => ({
@@ -106,6 +108,7 @@ function Particles() {
       })),
     [],
   );
+  if (!mounted) return null;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       {dots.map((d) => (
@@ -189,7 +192,14 @@ function Orb({ state }: { state: OrbState }) {
           background: `radial-gradient(circle at 30% 30%, ${core[0]} 0%, ${core[1]} 45%, ${core[2]} 100%)`,
           boxShadow: `0 0 80px 10px rgba(${glow},0.55), inset 0 0 40px rgba(255,255,255,0.15)`,
         }}
-      />
+      >
+        <span
+          className="flex h-full w-full items-center justify-center text-5xl font-light tracking-tight text-white"
+          style={{ textShadow: `0 0 18px rgba(${glow},0.9), 0 0 4px rgba(255,255,255,0.6)`, fontFamily: "'SF Pro Display', system-ui, sans-serif" }}
+        >
+          SP
+        </span>
+      </span>
       <span className="absolute h-52 w-52 rounded-full" style={{ border: `1px solid rgba(${glow},0.35)` }} />
     </div>
   );
