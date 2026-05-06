@@ -12,7 +12,7 @@ export const Route = createFileRoute("/")({ component: Index });
 type OrbState = "idle" | "listening" | "processing" | "speaking" | "activated" | "offline" | "standby";
 type VoiceGender = "female" | "male" | "jarvis";
 
-const WAKE_PHRASES = ["khul ja sim sim", "khulja sim sim", "khul ja simsim", "open sesame"];
+const WAKE_PHRASES = ["hello sp", "hello s p", "hello especie", "hello speech"];
 const OFF_PHRASES = ["off app", "turn off app", "shut down", "shutdown", "band karo", "bandh karo", "stop assistant"];
 
 interface Prefs {
