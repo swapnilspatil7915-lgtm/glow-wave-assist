@@ -94,6 +94,8 @@ function pickVoice(gender: VoiceGender): SpeechSynthesisVoice | null {
 }
 
 function Particles() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const dots = useMemo(
     () =>
       Array.from({ length: 28 }).map((_, i) => ({
@@ -106,6 +108,7 @@ function Particles() {
       })),
     [],
   );
+  if (!mounted) return null;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       {dots.map((d) => (
