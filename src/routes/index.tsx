@@ -544,10 +544,10 @@ function Index() {
                 : "Standby";
 
   const hint = poweredOff
-    ? "Tap orb or say \"khul ja sim sim\""
+    ? "Tap orb or say \"hello sp\""
     : activated
       ? "Try: open camera • torch • play music • say \"off app\""
-      : "Say \"khul ja sim sim\" to activate";
+      : "Say \"hello sp\" to activate";
 
   const waveColor = orbState === "speaking" ? "#B388FF" : orbState === "processing" ? "#FFC107" : orbState === "standby" ? "#0288A3" : "#00E5FF";
 
@@ -729,7 +729,7 @@ function Index() {
             {/* Commands */}
             <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Voice commands</p>
             <p className="mb-3 text-xs text-cyan-200/60">
-              Wake phrase: <span className="text-cyan-300">"khul ja sim sim"</span>
+              Wake phrase: <span className="text-cyan-300">"hello sp"</span>
             </p>
             <ul className="max-h-[30vh] space-y-1.5 overflow-y-auto text-xs text-white/70">
               {COMMANDS.map((c) => (
