@@ -760,6 +760,47 @@ function Index() {
 
             {/* Commands */}
             <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Voice commands</p>
+            <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Contacts</p>
+            <div className="mb-3 space-y-2">
+              {prefs.contacts.map((c, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    value={c.name}
+                    onChange={(e) => {
+                      const next = [...prefs.contacts];
+                      next[i] = { ...next[i], name: e.target.value };
+                      savePrefs({ ...prefs, contacts: next });
+                    }}
+                    placeholder="Name"
+                    className="w-1/3 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-400/60"
+                  />
+                  <input
+                    value={c.number}
+                    onChange={(e) => {
+                      const next = [...prefs.contacts];
+                      next[i] = { ...next[i], number: e.target.value };
+                      savePrefs({ ...prefs, contacts: next });
+                    }}
+                    placeholder="+1..."
+                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-400/60"
+                  />
+                  <button
+                    onClick={() => savePrefs({ ...prefs, contacts: prefs.contacts.filter((_, j) => j !== i) })}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-rose-300 hover:bg-white/10"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => savePrefs({ ...prefs, contacts: [...prefs.contacts, { name: "", number: "" }] })}
+                className="w-full rounded-lg border border-cyan-400/40 bg-cyan-400/5 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-400/10"
+              >
+                + Add contact
+              </button>
+              <p className="text-[11px] text-cyan-200/50">Say "call [name]" to dial. e.g. "call dad", "call priya".</p>
+            </div>
+
             <p className="mb-3 text-xs text-cyan-200/60">
               Wake phrase: <span className="text-cyan-300">"hello sp"</span>
             </p>
