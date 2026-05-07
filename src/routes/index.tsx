@@ -23,6 +23,7 @@ interface Prefs {
   silent: boolean;
   voiceGender: VoiceGender;
   onboarded: boolean;
+  contacts: { name: string; number: string }[];
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -33,6 +34,10 @@ const DEFAULT_PREFS: Prefs = {
   silent: false,
   voiceGender: "jarvis",
   onboarded: false,
+  contacts: [
+    { name: "Mom", number: "+10000000000" },
+    { name: "Dad", number: "+10000000001" },
+  ],
 };
 
 function loadPrefs(): Prefs {
