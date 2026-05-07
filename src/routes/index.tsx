@@ -6,6 +6,7 @@ import { matchCommand, type CommandId, COMMANDS } from "@/lib/commands";
 import { runCommand } from "@/lib/actions";
 import { useSpeech } from "@/hooks/use-speech";
 import { Slider } from "@/components/ui/slider";
+import { Cpu, CloudSun, CalendarClock, Send } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Index });
 
