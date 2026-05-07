@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Settings as SettingsIcon, ShieldCheck, ShieldAlert, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Settings as SettingsIcon, ShieldCheck, ShieldAlert, Mic, MicOff, Volume2, VolumeX, Camera, MessageCircle, Globe, Music, Phone, Map as MapIcon, Instagram, Zap } from "lucide-react";
 import { matchCommand, type CommandId, COMMANDS } from "@/lib/commands";
 import { runCommand } from "@/lib/actions";
 import { useSpeech } from "@/hooks/use-speech";
@@ -718,6 +718,47 @@ function Index() {
             Last: <span className="text-cyan-200/80">{lastCommand}</span>
           </p>
         )}
+
+      {/* Status pills */}
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
+        {[
+          { label: "SYSTEM READY", on: !poweredOff },
+          { label: "VOICE ACTIVE", on: !poweredOff && speech.listening },
+          { label: "PHONE CONTROL", on: prefs.appControl },
+        ].map((p) => (
+          <span
+            key={p.label}
+            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] tracking-[0.2em] backdrop-blur-md ${p.on ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/5 text-white/40"}`}
+          >
+            <Zap className={`h-3 w-3 ${p.on ? "text-emerald-300" : "text-white/30"}`} />
+            {p.label}
+          </span>
+        ))}
+      </div>
+
+      {/* Quick action grid */}
+      <div className="mt-2 grid w-full max-w-md grid-cols-4 gap-2">
+        {[
+          { icon: Camera, label: "Camera", onClick: () => { setLastCommand("Camera"); openCamera(); } },
+          { icon: MessageCircle, label: "WhatsApp", onClick: () => { setLastCommand("WhatsApp"); window.open("https://wa.me/", "_blank"); } },
+          { icon: Globe, label: "Chrome", onClick: () => { setLastCommand("Browser"); window.open("https://google.com", "_blank"); } },
+          { icon: Music, label: "Spotify", onClick: () => { setLastCommand("Spotify"); window.open("https://open.spotify.com", "_blank"); } },
+          { icon: SettingsIcon, label: "Settings", onClick: () => setShowSettings(true) },
+          { icon: Phone, label: "Dialer", onClick: () => { setLastCommand("Dialer"); window.location.href = "tel:"; } },
+          { icon: MapIcon, label: "Maps", onClick: () => { setLastCommand("Maps"); window.open("https://maps.google.com", "_blank"); } },
+          { icon: Instagram, label: "Instagram", onClick: () => { setLastCommand("Instagram"); window.open("https://instagram.com", "_blank"); } },
+        ].map((tile) => (
+          <button
+            key={tile.label}
+            onClick={tile.onClick}
+            className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-2 py-3 backdrop-blur-xl transition hover:border-cyan-400/50 hover:bg-cyan-400/10 active:scale-95"
+            style={{ boxShadow: "inset 0 0 20px rgba(0,229,255,0.04)" }}
+          >
+            <tile.icon className="h-5 w-5 text-cyan-200 transition group-hover:text-cyan-100" />
+            <span className="text-[10px] tracking-wide text-cyan-100/70 group-hover:text-cyan-100">{tile.label}</span>
+          </button>
+        ))}
+      </div>
       </section>
 
       {/* Floating mute chip */}
