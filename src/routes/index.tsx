@@ -464,6 +464,23 @@ function Index() {
         speak("Shutting down.");
         return;
       }
+      // Call <name> — match any contact name in the transcript
+      const norm = normalize(text);
+      if (/\b(call|dial|phone|ring)\b/.test(norm)) {
+        const contacts = prefsRef.current.contacts ?? [];
+        const match = contacts.find((c) => {
+          const n = normalize(c.name);
+          return n && new RegExp(`\\b${n}\\b`).test(norm);
+        });
+        if (match) {
+          lastCmdRef.current = { id: "call", at: Date.now() };
+          setOrbState("processing");
+          setLastCommand(`Call ${match.name}`);
+          window.location.href = `tel:${match.number}`;
+          speak(`Calling ${match.name}.`);
+          return;
+        }
+      }
       const result = matchCommand(text);
       if (result.command) {
         executeCommand(result.command.id, result.command.label);
