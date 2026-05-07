@@ -729,11 +729,6 @@ function Index() {
         {prefs.silent ? <VolumeX className="h-5 w-5 text-rose-300" /> : <Volume2 className="h-5 w-5 text-cyan-200" />}
       </button>
 
-      <footer className="relative z-10 flex items-center justify-between px-6 pb-6">
-        {/* placeholder to keep layout */}
-        <div className="hidden" />
-      </footer>
-
       {/* Actionable chat input */}
       <form
         onSubmit={(e) => {
