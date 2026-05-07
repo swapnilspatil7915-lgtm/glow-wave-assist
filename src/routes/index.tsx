@@ -666,6 +666,25 @@ function Index() {
         </span>
       </header>
 
+      {/* System stat widgets — glassmorphism */}
+      <div className="relative z-10 mx-auto mt-3 flex w-full max-w-md flex-wrap items-center justify-center gap-2 px-4">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
+          <Cpu className="h-3.5 w-3.5 text-cyan-300" />
+          <span className="text-cyan-100/80">Memory</span>
+          <span className="tabular-nums text-white">{memUsage != null ? `${memUsage}%` : "—"}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
+          <CloudSun className="h-3.5 w-3.5 text-cyan-300" />
+          <span className="text-cyan-100/80">{weather?.city ?? "Weather"}</span>
+          <span className="tabular-nums text-white">{weather ? `${weather.temp}°` : "—"}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
+          <CalendarClock className="h-3.5 w-3.5 text-cyan-300" />
+          <span className="text-cyan-100/80">{nextEvent.time || "Next"}</span>
+          <span className="text-white">{nextEvent.title}</span>
+        </div>
+      </div>
+
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6">
         <button
           type="button"
