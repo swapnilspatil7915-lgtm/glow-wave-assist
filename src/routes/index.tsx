@@ -730,6 +730,37 @@ function Index() {
       </button>
 
       <footer className="relative z-10 flex items-center justify-between px-6 pb-6">
+        {/* placeholder to keep layout */}
+        <div className="hidden" />
+      </footer>
+
+      {/* Actionable chat input */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const text = typed.trim();
+          if (!text) return;
+          handleFinal(text);
+          setTyped("");
+        }}
+        className="relative z-10 mx-auto mb-4 flex w-full max-w-md items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-xl"
+      >
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder='Type a command — or say "hello sp"'
+          className="flex-1 bg-transparent text-sm text-white placeholder:text-cyan-200/40 focus:outline-none"
+        />
+        <button
+          type="submit"
+          aria-label="Send command"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/20 text-cyan-200 transition hover:bg-cyan-400/30"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </form>
+
+      <footer className="relative z-10 flex items-center justify-between px-6 pb-6">
         <button
           onClick={() => setShowSettings((v) => !v)}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/5 backdrop-blur-md transition hover:bg-white/10"
