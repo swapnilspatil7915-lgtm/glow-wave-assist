@@ -6,6 +6,7 @@ import { matchCommand, type CommandId, COMMANDS } from "@/lib/commands";
 import { runCommand } from "@/lib/actions";
 import { useSpeech } from "@/hooks/use-speech";
 import { Slider } from "@/components/ui/slider";
+import { Cpu, CloudSun, CalendarClock, Send } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -289,6 +290,10 @@ function Index() {
   const [now, setNow] = useState("");
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [showSettings, setShowSettings] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [memUsage, setMemUsage] = useState<number | null>(null);
+  const [weather, setWeather] = useState<{ temp: number; code: number; city: string } | null>(null);
+  const [nextEvent, setNextEvent] = useState<{ title: string; time: string }>({ title: "Focus block", time: "" });
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -308,6 +313,52 @@ function Index() {
     const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
+
+  // System memory (Chrome only) — non-intrusive widget
+  useEffect(() => {
+    const perf = performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } };
+    const sample = () => {
+      if (perf.memory) {
+        setMemUsage(Math.round((perf.memory.usedJSHeapSize / perf.memory.jsHeapSizeLimit) * 100));
+      }
+    };
+    sample();
+    const id = setInterval(sample, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Local weather via open-meteo (no API key)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+          const j = await r.json();
+          setWeather({
+            temp: Math.round(j.current_weather?.temperature ?? 0),
+            code: j.current_weather?.weathercode ?? 0,
+            city: "Local",
+          });
+        } catch { /* noop */ }
+      },
+      () => {},
+      { timeout: 5000 },
+    );
+  }, []);
+
+  // Next "event" — placeholder, derived from current hour
+  useEffect(() => {
+    const h = new Date().getHours();
+    const upcoming =
+      h < 9 ? { title: "Morning briefing", time: "09:00" }
+      : h < 12 ? { title: "Deep work", time: "11:00" }
+      : h < 14 ? { title: "Lunch break", time: "13:00" }
+      : h < 18 ? { title: "Focus block", time: "16:00" }
+      : { title: "Wind down", time: "21:00" };
+    setNextEvent(upcoming);
+  }, [now]);
 
   useEffect(() => {
     const nav = navigator as Navigator & { permissions?: { query: (d: { name: string }) => Promise<{ state: string; onchange: (() => void) | null }> } };
@@ -615,6 +666,25 @@ function Index() {
         </span>
       </header>
 
+      {/* System stat widgets — glassmorphism */}
+      <div className="relative z-10 mx-auto mt-3 flex w-full max-w-md flex-wrap items-center justify-center gap-2 px-4">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
+          <Cpu className="h-3.5 w-3.5 text-cyan-300" />
+          <span className="text-cyan-100/80">Memory</span>
+          <span className="tabular-nums text-white">{memUsage != null ? `${memUsage}%` : "—"}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
+          <CloudSun className="h-3.5 w-3.5 text-cyan-300" />
+          <span className="text-cyan-100/80">{weather?.city ?? "Weather"}</span>
+          <span className="tabular-nums text-white">{weather ? `${weather.temp}°` : "—"}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
+          <CalendarClock className="h-3.5 w-3.5 text-cyan-300" />
+          <span className="text-cyan-100/80">{nextEvent.time || "Next"}</span>
+          <span className="text-white">{nextEvent.title}</span>
+        </div>
+      </div>
+
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6">
         <button
           type="button"
@@ -658,6 +728,32 @@ function Index() {
       >
         {prefs.silent ? <VolumeX className="h-5 w-5 text-rose-300" /> : <Volume2 className="h-5 w-5 text-cyan-200" />}
       </button>
+
+      {/* Actionable chat input */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const text = typed.trim();
+          if (!text) return;
+          handleFinal(text);
+          setTyped("");
+        }}
+        className="relative z-10 mx-auto mb-4 flex w-full max-w-md items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-xl"
+      >
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder='Type a command — or say "hello sp"'
+          className="flex-1 bg-transparent text-sm text-white placeholder:text-cyan-200/40 focus:outline-none"
+        />
+        <button
+          type="submit"
+          aria-label="Send command"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/20 text-cyan-200 transition hover:bg-cyan-400/30"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </form>
 
       <footer className="relative z-10 flex items-center justify-between px-6 pb-6">
         <button
