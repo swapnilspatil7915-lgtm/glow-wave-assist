@@ -891,6 +891,14 @@ function Index() {
             {/* Commands */}
             <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Voice commands</p>
             <p className="mb-2 text-xs uppercase tracking-widest text-cyan-300/60">Contacts</p>
+            {contactFlow.step !== "idle" && (
+              <div className="mb-2 rounded-xl border border-cyan-400/40 bg-cyan-400/10 p-2 text-xs text-cyan-100">
+                {contactFlow.step === "awaitName" && `Listening for contact name to ${contactFlow.mode}…`}
+                {contactFlow.step === "awaitNumber" && `Say the digits for ${contactFlow.name}…`}
+                {contactFlow.step === "confirmDelete" && `Confirm delete ${contactFlow.name}? Say yes or no.`}
+                <span className="ml-2 text-cyan-300/70">(say "cancel" to abort)</span>
+              </div>
+            )}
             <div className="mb-3 space-y-2">
               {prefs.contacts.map((c, i) => (
                 <div key={i} className="flex items-center gap-2">
