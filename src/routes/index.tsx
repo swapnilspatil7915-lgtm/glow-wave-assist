@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Settings as SettingsIcon, ShieldCheck, ShieldAlert, Mic, MicOff, Volume2, VolumeX, Camera, MessageCircle, Globe, Music, Phone, Map as MapIcon, Instagram, Zap } from "lucide-react";
+import { Settings as SettingsIcon, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { matchCommand, type CommandId, COMMANDS } from "@/lib/commands";
 import { runCommand } from "@/lib/actions";
 import { useSpeech } from "@/hooks/use-speech";
 import { Slider } from "@/components/ui/slider";
-import { Cpu, CloudSun, CalendarClock, Send } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -290,10 +289,6 @@ function Index() {
   const [now, setNow] = useState("");
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [showSettings, setShowSettings] = useState(false);
-  const [typed, setTyped] = useState("");
-  const [memUsage, setMemUsage] = useState<number | null>(null);
-  const [weather, setWeather] = useState<{ temp: number; code: number; city: string } | null>(null);
-  const [nextEvent, setNextEvent] = useState<{ title: string; time: string }>({ title: "Focus block", time: "" });
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -313,52 +308,6 @@ function Index() {
     const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
-
-  // System memory (Chrome only) — non-intrusive widget
-  useEffect(() => {
-    const perf = performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } };
-    const sample = () => {
-      if (perf.memory) {
-        setMemUsage(Math.round((perf.memory.usedJSHeapSize / perf.memory.jsHeapSizeLimit) * 100));
-      }
-    };
-    sample();
-    const id = setInterval(sample, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Local weather via open-meteo (no API key)
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
-          const j = await r.json();
-          setWeather({
-            temp: Math.round(j.current_weather?.temperature ?? 0),
-            code: j.current_weather?.weathercode ?? 0,
-            city: "Local",
-          });
-        } catch { /* noop */ }
-      },
-      () => {},
-      { timeout: 5000 },
-    );
-  }, []);
-
-  // Next "event" — placeholder, derived from current hour
-  useEffect(() => {
-    const h = new Date().getHours();
-    const upcoming =
-      h < 9 ? { title: "Morning briefing", time: "09:00" }
-      : h < 12 ? { title: "Deep work", time: "11:00" }
-      : h < 14 ? { title: "Lunch break", time: "13:00" }
-      : h < 18 ? { title: "Focus block", time: "16:00" }
-      : { title: "Wind down", time: "21:00" };
-    setNextEvent(upcoming);
-  }, [now]);
 
   useEffect(() => {
     const nav = navigator as Navigator & { permissions?: { query: (d: { name: string }) => Promise<{ state: string; onchange: (() => void) | null }> } };
