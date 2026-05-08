@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Settings as SettingsIcon, ShieldCheck, ShieldAlert, Mic, MicOff, Volume2, VolumeX, Camera, MessageCircle, Globe, Music, Phone, Map as MapIcon, Instagram, Zap } from "lucide-react";
+import { Settings as SettingsIcon, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { matchCommand, type CommandId, COMMANDS } from "@/lib/commands";
 import { runCommand } from "@/lib/actions";
 import { useSpeech } from "@/hooks/use-speech";
 import { Slider } from "@/components/ui/slider";
-import { Cpu, CloudSun, CalendarClock, Send } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Index });
 
@@ -290,10 +289,6 @@ function Index() {
   const [now, setNow] = useState("");
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [showSettings, setShowSettings] = useState(false);
-  const [typed, setTyped] = useState("");
-  const [memUsage, setMemUsage] = useState<number | null>(null);
-  const [weather, setWeather] = useState<{ temp: number; code: number; city: string } | null>(null);
-  const [nextEvent, setNextEvent] = useState<{ title: string; time: string }>({ title: "Focus block", time: "" });
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -313,52 +308,6 @@ function Index() {
     const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
   }, []);
-
-  // System memory (Chrome only) — non-intrusive widget
-  useEffect(() => {
-    const perf = performance as Performance & { memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number } };
-    const sample = () => {
-      if (perf.memory) {
-        setMemUsage(Math.round((perf.memory.usedJSHeapSize / perf.memory.jsHeapSizeLimit) * 100));
-      }
-    };
-    sample();
-    const id = setInterval(sample, 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Local weather via open-meteo (no API key)
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude, longitude } = pos.coords;
-          const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
-          const j = await r.json();
-          setWeather({
-            temp: Math.round(j.current_weather?.temperature ?? 0),
-            code: j.current_weather?.weathercode ?? 0,
-            city: "Local",
-          });
-        } catch { /* noop */ }
-      },
-      () => {},
-      { timeout: 5000 },
-    );
-  }, []);
-
-  // Next "event" — placeholder, derived from current hour
-  useEffect(() => {
-    const h = new Date().getHours();
-    const upcoming =
-      h < 9 ? { title: "Morning briefing", time: "09:00" }
-      : h < 12 ? { title: "Deep work", time: "11:00" }
-      : h < 14 ? { title: "Lunch break", time: "13:00" }
-      : h < 18 ? { title: "Focus block", time: "16:00" }
-      : { title: "Wind down", time: "21:00" };
-    setNextEvent(upcoming);
-  }, [now]);
 
   useEffect(() => {
     const nav = navigator as Navigator & { permissions?: { query: (d: { name: string }) => Promise<{ state: string; onchange: (() => void) | null }> } };
@@ -666,25 +615,6 @@ function Index() {
         </span>
       </header>
 
-      {/* System stat widgets — glassmorphism */}
-      <div className="relative z-10 mx-auto mt-3 flex w-full max-w-md flex-wrap items-center justify-center gap-2 px-4">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
-          <Cpu className="h-3.5 w-3.5 text-cyan-300" />
-          <span className="text-cyan-100/80">Memory</span>
-          <span className="tabular-nums text-white">{memUsage != null ? `${memUsage}%` : "—"}</span>
-        </div>
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
-          <CloudSun className="h-3.5 w-3.5 text-cyan-300" />
-          <span className="text-cyan-100/80">{weather?.city ?? "Weather"}</span>
-          <span className="tabular-nums text-white">{weather ? `${weather.temp}°` : "—"}</span>
-        </div>
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] backdrop-blur-xl">
-          <CalendarClock className="h-3.5 w-3.5 text-cyan-300" />
-          <span className="text-cyan-100/80">{nextEvent.time || "Next"}</span>
-          <span className="text-white">{nextEvent.title}</span>
-        </div>
-      </div>
-
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6">
         <button
           type="button"
@@ -718,47 +648,6 @@ function Index() {
             Last: <span className="text-cyan-200/80">{lastCommand}</span>
           </p>
         )}
-
-      {/* Status pills */}
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
-        {[
-          { label: "SYSTEM READY", on: !poweredOff },
-          { label: "VOICE ACTIVE", on: !poweredOff && speech.listening },
-          { label: "PHONE CONTROL", on: prefs.appControl },
-        ].map((p) => (
-          <span
-            key={p.label}
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] tracking-[0.2em] backdrop-blur-md ${p.on ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-200" : "border-white/10 bg-white/5 text-white/40"}`}
-          >
-            <Zap className={`h-3 w-3 ${p.on ? "text-emerald-300" : "text-white/30"}`} />
-            {p.label}
-          </span>
-        ))}
-      </div>
-
-      {/* Quick action grid */}
-      <div className="mt-2 grid w-full max-w-md grid-cols-4 gap-2">
-        {[
-          { icon: Camera, label: "Camera", onClick: () => { setLastCommand("Camera"); openCamera(); } },
-          { icon: MessageCircle, label: "WhatsApp", onClick: () => { setLastCommand("WhatsApp"); window.open("https://wa.me/", "_blank"); } },
-          { icon: Globe, label: "Chrome", onClick: () => { setLastCommand("Browser"); window.open("https://google.com", "_blank"); } },
-          { icon: Music, label: "Spotify", onClick: () => { setLastCommand("Spotify"); window.open("https://open.spotify.com", "_blank"); } },
-          { icon: SettingsIcon, label: "Settings", onClick: () => setShowSettings(true) },
-          { icon: Phone, label: "Dialer", onClick: () => { setLastCommand("Dialer"); window.location.href = "tel:"; } },
-          { icon: MapIcon, label: "Maps", onClick: () => { setLastCommand("Maps"); window.open("https://maps.google.com", "_blank"); } },
-          { icon: Instagram, label: "Instagram", onClick: () => { setLastCommand("Instagram"); window.open("https://instagram.com", "_blank"); } },
-        ].map((tile) => (
-          <button
-            key={tile.label}
-            onClick={tile.onClick}
-            className="group flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-2 py-3 backdrop-blur-xl transition hover:border-cyan-400/50 hover:bg-cyan-400/10 active:scale-95"
-            style={{ boxShadow: "inset 0 0 20px rgba(0,229,255,0.04)" }}
-          >
-            <tile.icon className="h-5 w-5 text-cyan-200 transition group-hover:text-cyan-100" />
-            <span className="text-[10px] tracking-wide text-cyan-100/70 group-hover:text-cyan-100">{tile.label}</span>
-          </button>
-        ))}
-      </div>
       </section>
 
       {/* Floating mute chip */}
@@ -769,32 +658,6 @@ function Index() {
       >
         {prefs.silent ? <VolumeX className="h-5 w-5 text-rose-300" /> : <Volume2 className="h-5 w-5 text-cyan-200" />}
       </button>
-
-      {/* Actionable chat input */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          const text = typed.trim();
-          if (!text) return;
-          handleFinal(text);
-          setTyped("");
-        }}
-        className="relative z-10 mx-auto mb-4 flex w-full max-w-md items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-xl"
-      >
-        <input
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder='Type a command — or say "hello sp"'
-          className="flex-1 bg-transparent text-sm text-white placeholder:text-cyan-200/40 focus:outline-none"
-        />
-        <button
-          type="submit"
-          aria-label="Send command"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-400/20 text-cyan-200 transition hover:bg-cyan-400/30"
-        >
-          <Send className="h-4 w-4" />
-        </button>
-      </form>
 
       <footer className="relative z-10 flex items-center justify-between px-6 pb-6">
         <button
@@ -808,7 +671,7 @@ function Index() {
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs backdrop-blur-md">
           {micPermission === "granted" ? (
             <>
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <Mic className="h-4 w-4 text-emerald-400" />
               <span className="text-emerald-300/90">Mic granted</span>
             </>
           ) : micPermission === "denied" ? (
@@ -820,7 +683,6 @@ function Index() {
             <>
               <Mic className="h-4 w-4 text-cyan-300" />
               <span className="text-cyan-200/80">{speech.supported ? "Mic ready" : "Unsupported"}</span>
-              <ShieldAlert className="h-4 w-4 text-cyan-300/60" />
             </>
           )}
         </div>
