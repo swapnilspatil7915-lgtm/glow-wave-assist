@@ -63,6 +63,25 @@ function hasOff(text: string) {
   return OFF_PHRASES.some((p) => n.includes(p));
 }
 
+const DIGIT_WORDS: Record<string, string> = {
+  zero: "0", oh: "0", o: "0",
+  one: "1", two: "2", to: "2", too: "2", three: "3", tree: "3",
+  four: "4", for: "4", five: "5", six: "6", sex: "6",
+  seven: "7", eight: "8", ate: "8", nine: "9",
+};
+function extractDigits(text: string): string {
+  const tokens = normalize(text).split(" ");
+  let out = "";
+  for (const t of tokens) {
+    if (/^\+?\d+$/.test(t)) out += t.replace("+", "");
+    else if (DIGIT_WORDS[t]) out += DIGIT_WORDS[t];
+    else if (t === "double" || t === "triple") {
+      // handled lazily — skip; user can say digits straight
+    }
+  }
+  return out;
+}
+
 function playChime() {
   try {
     const AC = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext);
