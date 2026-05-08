@@ -709,7 +709,7 @@ function Index() {
   const hint = poweredOff
     ? "Tap orb or say \"hello sp\""
     : activated
-      ? "Try: open camera • torch • play music • say \"off app\""
+      ? "Try: open settings • add contact • call dad • say \"off app\""
       : "Say \"hello sp\" to activate";
 
   const waveColor = orbState === "speaking" ? "#B388FF" : orbState === "processing" ? "#FFC107" : orbState === "standby" ? "#0288A3" : "#00E5FF";
