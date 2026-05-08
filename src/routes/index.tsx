@@ -321,6 +321,18 @@ function Index() {
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
 
+  // Voice-driven contact editing flow
+  type ContactFlow =
+    | { step: "idle" }
+    | { step: "awaitName"; mode: "add" | "update" | "delete" }
+    | { step: "awaitNumber"; mode: "add" | "update"; name: string }
+    | { step: "confirmDelete"; name: string };
+  const [contactFlow, setContactFlow] = useState<ContactFlow>({ step: "idle" });
+  const contactFlowRef = useRef(contactFlow);
+  contactFlowRef.current = contactFlow;
+  const showSettingsRef = useRef(showSettings);
+  showSettingsRef.current = showSettings;
+
   useEffect(() => {
     const tick = () => setNow(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     tick();
