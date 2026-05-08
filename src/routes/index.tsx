@@ -495,6 +495,106 @@ function Index() {
         speak("Shutting down.");
         return;
       }
+
+      const norm0 = normalize(text);
+
+      // ---- Multi-step contact editing flow (voice-only) ----
+      const flow = contactFlowRef.current;
+      if (flow.step !== "idle") {
+        if (/\b(cancel|stop|nevermind|never mind|abort)\b/.test(norm0)) {
+          setContactFlow({ step: "idle" });
+          speak("Cancelled.");
+          return;
+        }
+        if (flow.step === "awaitName") {
+          const name = norm0.replace(/^(the |contact |name is |name )/, "").trim();
+          if (!name) { speak("Please say a name."); return; }
+          if (flow.mode === "delete") {
+            const exists = prefsRef.current.contacts.find((c) => normalize(c.name) === name);
+            if (!exists) { speak(`No contact named ${name}.`); setContactFlow({ step: "idle" }); return; }
+            setContactFlow({ step: "confirmDelete", name: exists.name });
+            speak(`Delete ${exists.name}? Say yes or no.`);
+            return;
+          }
+          setContactFlow({ step: "awaitNumber", mode: flow.mode, name });
+          speak(`What number for ${name}? Say the digits.`);
+          return;
+        }
+        if (flow.step === "awaitNumber") {
+          const digits = extractDigits(norm0);
+          if (digits.length < 4) { speak("I didn't catch the number. Please say the digits again."); return; }
+          const number = `+${digits}`;
+          const list = [...prefsRef.current.contacts];
+          const idx = list.findIndex((c) => normalize(c.name) === normalize(flow.name));
+          if (idx >= 0) list[idx] = { name: list[idx].name, number };
+          else list.push({ name: flow.name.replace(/\b\w/g, (m) => m.toUpperCase()), number });
+          savePrefs({ ...prefsRef.current, contacts: list });
+          setContactFlow({ step: "idle" });
+          speak(`Saved ${flow.name} as ${digits.split("").join(" ")}.`);
+          return;
+        }
+        if (flow.step === "confirmDelete") {
+          if (/\b(yes|yeah|yep|confirm|ok|okay|sure)\b/.test(norm0)) {
+            const list = prefsRef.current.contacts.filter((c) => c.name !== flow.name);
+            savePrefs({ ...prefsRef.current, contacts: list });
+            setContactFlow({ step: "idle" });
+            speak(`${flow.name} deleted.`);
+          } else if (/\b(no|nope|cancel)\b/.test(norm0)) {
+            setContactFlow({ step: "idle" });
+            speak("Kept.");
+          } else {
+            speak("Yes or no?");
+          }
+          return;
+        }
+      }
+
+      // ---- Settings open/close by voice ----
+      if (/\b(open|show|launch)\b.*\bsettings?\b/.test(norm0) || /^settings?$/.test(norm0)) {
+        setShowSettings(true);
+        setLastCommand("Open Settings");
+        speak("Opening settings.");
+        return;
+      }
+      if (/\b(close|hide|exit|dismiss)\b.*\bsettings?\b/.test(norm0)) {
+        setShowSettings(false);
+        setLastCommand("Close Settings");
+        speak("Closing settings.");
+        return;
+      }
+
+      // ---- Voice contact management triggers ----
+      // "add contact dad number 9876543210" — single shot
+      const oneShot = norm0.match(/\badd contact\s+([a-z][a-z\s]*?)\s+(?:number\s+)?([\d\s]+|(?:(?:zero|one|two|three|four|five|six|seven|eight|nine)\s*)+)$/);
+      if (oneShot) {
+        const name = oneShot[1].trim();
+        const digits = extractDigits(oneShot[2]);
+        if (digits.length >= 4) {
+          const list = [...prefsRef.current.contacts, { name: name.replace(/\b\w/g, (m) => m.toUpperCase()), number: `+${digits}` }];
+          savePrefs({ ...prefsRef.current, contacts: list });
+          speak(`Added ${name}.`);
+          return;
+        }
+      }
+      if (/\b(add|create|new)\b.*\bcontact\b/.test(norm0)) {
+        setShowSettings(true);
+        setContactFlow({ step: "awaitName", mode: "add" });
+        speak("What name?");
+        return;
+      }
+      if (/\b(edit|update|change)\b.*\bcontact\b/.test(norm0)) {
+        setShowSettings(true);
+        setContactFlow({ step: "awaitName", mode: "update" });
+        speak("Which contact?");
+        return;
+      }
+      if (/\b(delete|remove)\b.*\bcontact\b/.test(norm0)) {
+        setShowSettings(true);
+        setContactFlow({ step: "awaitName", mode: "delete" });
+        speak("Which contact to delete?");
+        return;
+      }
+
       // Call <name> — match any contact name in the transcript
       const norm = normalize(text);
       if (/\b(call|dial|phone|ring)\b/.test(norm)) {
