@@ -310,6 +310,7 @@ function Onboarding({ prefs, onSave }: { prefs: Prefs; onSave: (p: Prefs) => voi
 }
 
 function Index() {
+  const navigate = useNavigate();
   const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
   const savePrefs = useCallback((p: Prefs) => {
     setPrefs(p);
@@ -864,6 +865,7 @@ function Index() {
               key={card.label}
               onClick={() => {
                 if (card.label === "Settings") setShowSettings(true);
+                else if (card.label === "Security") navigate({ to: "/security" });
                 else handleFinal(card.hint);
               }}
               className="group relative flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-2 py-3 backdrop-blur-md transition hover:bg-white/10"
