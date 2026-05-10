@@ -1,7 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Settings as SettingsIcon, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import {
+  Settings as SettingsIcon,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  ShieldCheck,
+  Wifi,
+  WifiOff,
+  BatteryFull,
+  BatteryMedium,
+  BatteryLow,
+  Grid3x3,
+  Smartphone,
+  Shield,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 import { matchCommand, type CommandId, COMMANDS } from "@/lib/commands";
 import { runCommand } from "@/lib/actions";
 import { useSpeech } from "@/hooks/use-speech";
@@ -308,6 +325,32 @@ function Index() {
   const [now, setNow] = useState("");
   const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt" | "unknown">("unknown");
   const [showSettings, setShowSettings] = useState(false);
+  const [battery, setBattery] = useState<{ level: number; charging: boolean } | null>(null);
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    setOnline(navigator.onLine);
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    const navAny = navigator as Navigator & {
+      getBattery?: () => Promise<{ level: number; charging: boolean; addEventListener: (e: string, cb: () => void) => void }>;
+    };
+    let bat: { level: number; charging: boolean; addEventListener: (e: string, cb: () => void) => void } | null = null;
+    const sync = () => bat && setBattery({ level: bat.level, charging: bat.charging });
+    navAny.getBattery?.().then((b) => {
+      bat = b;
+      sync();
+      b.addEventListener("levelchange", sync);
+      b.addEventListener("chargingchange", sync);
+    }).catch(() => { /* noop */ });
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -734,16 +777,43 @@ function Index() {
         }}
       />
 
-      <header className="relative z-10 grid grid-cols-3 items-center px-6 pt-5 text-xs">
-        <span className="text-cyan-300/70 tracking-[0.3em] uppercase">Jarvis</span>
-        <span className="text-center text-base font-medium tabular-nums">{now}</span>
-        <span className="flex items-center justify-end gap-2 text-right">
-          <span className="text-cyan-200/80 capitalize">{prefs.voiceGender}</span>
-          <span
-            className={`inline-block h-2.5 w-2.5 rounded-full ${poweredOff ? "bg-rose-500" : "bg-emerald-400 animate-pulse"}`}
-            style={{ boxShadow: poweredOff ? "0 0 10px rgba(244,63,94,0.8)" : "0 0 10px rgba(52,211,153,0.8)" }}
-          />
-        </span>
+      <header className="relative z-10 flex flex-col gap-3 px-5 pt-4 text-xs">
+        {/* Status bar */}
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-md">
+          <span className="font-medium tabular-nums text-cyan-100">{now}</span>
+          <div className="flex items-center gap-3 text-cyan-200/80">
+            {online ? <Wifi className="h-3.5 w-3.5 text-emerald-400" /> : <WifiOff className="h-3.5 w-3.5 text-rose-400" />}
+            {micPermission === "denied"
+              ? <MicOff className="h-3.5 w-3.5 text-rose-400" />
+              : <Mic className={`h-3.5 w-3.5 ${activated ? "text-emerald-400" : "text-cyan-300"}`} />}
+            <ShieldCheck className="h-3.5 w-3.5 text-cyan-300" />
+            {battery ? (
+              <span className="flex items-center gap-1 tabular-nums">
+                {battery.level > 0.6 ? <BatteryFull className="h-3.5 w-3.5 text-emerald-400" />
+                  : battery.level > 0.25 ? <BatteryMedium className="h-3.5 w-3.5 text-amber-400" />
+                  : <BatteryLow className="h-3.5 w-3.5 text-rose-400" />}
+                <span className="text-[10px]">{Math.round(battery.level * 100)}%</span>
+              </span>
+            ) : (
+              <BatteryFull className="h-3.5 w-3.5 text-cyan-300/60" />
+            )}
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${poweredOff ? "bg-rose-500" : "bg-emerald-400 animate-pulse"}`}
+              style={{ boxShadow: poweredOff ? "0 0 8px rgba(244,63,94,0.8)" : "0 0 8px rgba(52,211,153,0.8)" }}
+            />
+          </div>
+        </div>
+        {/* AI header */}
+        <div className="flex flex-col items-center gap-1 pt-1">
+          <p className="text-[10px] uppercase tracking-[0.45em] text-cyan-300/60">{prefs.voiceGender} · v1.0</p>
+          <h2
+            className="text-xl font-light tracking-[0.25em] text-cyan-100"
+            style={{ textShadow: "0 0 18px rgba(0,229,255,0.5)" }}
+          >
+            JARVIS OS
+          </h2>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-cyan-200/50">Secure Voice Control System</p>
+        </div>
       </header>
 
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-8 px-6">
@@ -779,6 +849,39 @@ function Index() {
             Last: <span className="text-cyan-200/80">{lastCommand}</span>
           </p>
         )}
+
+        {/* Quick command grid */}
+        <div className="grid w-full max-w-md grid-cols-3 gap-2 pt-2">
+          {[
+            { icon: Grid3x3, label: "Apps", hint: "browser", color: "0,229,255" },
+            { icon: Smartphone, label: "Device", hint: "torch", color: "0,229,255" },
+            { icon: Shield, label: "Security", hint: "shield", color: "0,230,118" },
+            { icon: Sparkles, label: "Routines", hint: "good morning", color: "124,77,255" },
+            { icon: Wrench, label: "Tools", hint: "time", color: "255,213,79" },
+            { icon: SettingsIcon, label: "Settings", hint: "open settings", color: "0,229,255" },
+          ].map((card) => (
+            <button
+              key={card.label}
+              onClick={() => {
+                if (card.label === "Settings") setShowSettings(true);
+                else handleFinal(card.hint);
+              }}
+              className="group relative flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 px-2 py-3 backdrop-blur-md transition hover:bg-white/10"
+              style={{ boxShadow: `inset 0 0 24px rgba(${card.color},0.05)` }}
+            >
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-full"
+                style={{
+                  background: `radial-gradient(circle, rgba(${card.color},0.25), transparent 70%)`,
+                  boxShadow: `0 0 16px rgba(${card.color},0.35)`,
+                }}
+              >
+                <card.icon className="h-4 w-4" style={{ color: `rgb(${card.color})` }} />
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-white/80">{card.label}</span>
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Floating mute chip */}
